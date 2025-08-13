@@ -23,7 +23,17 @@ struct ProcessorConfig {
 
 class ImageProcessor {
 public:
-    using FrameCallback = std::function<void(const uint8_t* data, size_t size, int64_t timestamp)>;
+    struct RTPTimestamp {
+        uint32_t rtp_timestamp;     // RTP header timestamp (32-bit)
+        uint32_t ssrc;               // Synchronization source identifier
+        uint32_t csrc;               // Contributing source identifier (contains nanoseconds)
+        int64_t pts_ms;              // Presentation timestamp in milliseconds
+        uint64_t seconds;            // Reconstructed seconds (48-bit in original)
+        uint32_t nanoseconds;        // Nanoseconds portion
+        uint16_t fractions;          // Fractions of nanoseconds
+    };
+    
+    using FrameCallback = std::function<void(const uint8_t* data, size_t size, const RTPTimestamp& timestamp)>;
     
     ImageProcessor(const ProcessorConfig& config);
     ~ImageProcessor();

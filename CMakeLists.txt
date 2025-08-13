@@ -24,6 +24,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GST REQUIRED 
     gstreamer-1.0>=1.14
     gstreamer-app-1.0>=1.14
+    gstreamer-rtp-1.0>=1.14
 )
 
 # Source files

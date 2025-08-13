@@ -1,7 +1,9 @@
 #include "image_processor.h"
 #include <gst/gst.h>
 #include <gst/app/gstappsink.h>
+#include <gst/rtp/gstrtpbuffer.h>
 #include <thread>
+#include <mutex>
 #include <chrono>
 #include <cstring>
 #include <atomic>
@@ -17,8 +19,13 @@ private:
     HardwareType hw_type_;
     GstElement* pipeline_ = nullptr;
     GstElement* appsink_ = nullptr;
+    GstElement* identity_ = nullptr;
     FrameCallback frame_callback_;
     std::atomic<bool> running_{false};
+    
+    // RTP timestamp tracking
+    std::mutex rtp_mutex_;
+    ImageProcessor::RTPTimestamp last_rtp_timestamp_;
     
     // Statistics
     std::atomic<uint64_t> frames_processed_{0};
@@ -34,6 +41,9 @@ public:
     
     ~Impl() {
         stop();
+        if (identity_) {
+            gst_object_unref(identity_);
+        }
         if (pipeline_) {
             gst_object_unref(pipeline_);
         }
@@ -57,6 +67,9 @@ public:
         
         // Setup AppSink
         setupAppSink();
+        
+        // Setup RTP probe
+        setupRTPProbe();
         
         // Start
         gst_element_set_state(pipeline_, GST_STATE_PLAYING);
@@ -123,6 +136,7 @@ private:
             " buffer-size=" + std::to_string(config_.buffer_size) + 
             " caps=\"application/x-rtp, sampling=(string)YCbCr-4:2:2, depth=(string)8, "
             "width=(string)1920, height=(string)1280\" ! "
+            "identity name=rtpidentity ! "
             "rtpvrawdepay ! ";
         
         std::string processing;
@@ -207,14 +221,12 @@ private:
         GstMapInfo map;
         
         if (gst_buffer_map(buffer, &map, GST_MAP_READ)) {
-            // Get timestamp
-            GstClockTime timestamp = GST_BUFFER_PTS(buffer);
-            int64_t pts = timestamp != GST_CLOCK_TIME_NONE ? 
-                         timestamp / 1000000 : 0; // nanoseconds to milliseconds
+            // Extract RTP timestamp information
+            ImageProcessor::RTPTimestamp rtp_ts = impl->extractRTPTimestamp(buffer);
             
-            // Call callback
+            // Call callback with RTP timestamp
             if (impl->frame_callback_) {
-                impl->frame_callback_(map.data, map.size, pts);
+                impl->frame_callback_(map.data, map.size, rtp_ts);
             }
             
             impl->frames_processed_++;
@@ -295,5 +307,144 @@ private:
         }
         
         return "Unknown";
+    }
+    
+    void setupRTPProbe() {
+        // Get the identity element from the pipeline
+        identity_ = gst_bin_get_by_name(GST_BIN(pipeline_), "rtpidentity");
+        if (identity_) {
+            GstPad* srcpad = gst_element_get_static_pad(identity_, "src");
+            if (srcpad) {
+                // Add probe to capture RTP buffers
+                gst_pad_add_probe(srcpad, GST_PAD_PROBE_TYPE_BUFFER,
+                                 onRTPBuffer, this, nullptr);
+                gst_object_unref(srcpad);
+            }
+        }
+    }
+    
+    static GstPadProbeReturn onRTPBuffer(GstPad* pad, GstPadProbeInfo* info, gpointer user_data) {
+        auto* impl = static_cast<Impl*>(user_data);
+        GstBuffer* buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+        
+        if (buffer) {
+            ImageProcessor::RTPTimestamp rtp_ts = {};
+            
+            // Try to extract RTP header information
+            GstRTPBuffer rtp = GST_RTP_BUFFER_INIT;
+            if (gst_rtp_buffer_map(buffer, GST_MAP_READ, &rtp)) {
+                rtp_ts.rtp_timestamp = gst_rtp_buffer_get_timestamp(&rtp);
+                rtp_ts.ssrc = gst_rtp_buffer_get_ssrc(&rtp);
+                
+                // Get CSRC if available
+                guint8 csrc_count = gst_rtp_buffer_get_csrc_count(&rtp);
+                if (csrc_count > 0) {
+                    rtp_ts.csrc = gst_rtp_buffer_get_csrc(&rtp, 0);
+                }
+                
+                // Reconstruct 96-bit custom timestamp according to Tier4 documentation:
+                // - RTP timestamp (32 bits): High 32 bits of seconds
+                // - SSRC (32 bits): Low 16 bits of seconds + High 16 bits of nanoseconds
+                // - CSRC (32 bits): Low 16 bits of nanoseconds + 16 bits fractions
+                
+                if (csrc_count > 0) {
+                    // Full custom timestamp is available
+                    
+                    // Seconds: 48 bits total
+                    // RTP timestamp provides high 32 bits
+                    // SSRC high 16 bits provides low 16 bits of seconds
+                    uint64_t high_seconds = static_cast<uint64_t>(rtp_ts.rtp_timestamp);
+                    uint64_t low_seconds = static_cast<uint64_t>((rtp_ts.ssrc >> 16) & 0xFFFF);
+                    rtp_ts.seconds = (high_seconds << 16) | low_seconds;
+                    
+                    // Nanoseconds: 32 bits total
+                    // SSRC low 16 bits provides high 16 bits of nanoseconds
+                    // CSRC high 16 bits provides low 16 bits of nanoseconds
+                    uint32_t high_nanos = (rtp_ts.ssrc & 0xFFFF);
+                    uint32_t low_nanos = ((rtp_ts.csrc >> 16) & 0xFFFF);
+                    rtp_ts.nanoseconds = (high_nanos << 16) | low_nanos;
+                    
+                    // Fractions: 16 bits from CSRC low 16 bits
+                    rtp_ts.fractions = (rtp_ts.csrc & 0xFFFF);
+                } else {
+                    // Fallback to system time if custom timestamp not available
+                    auto now = std::chrono::system_clock::now();
+                    auto duration = now.time_since_epoch();
+                    auto total_nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+                    
+                    rtp_ts.seconds = total_nanos / 1000000000;
+                    rtp_ts.nanoseconds = total_nanos % 1000000000;
+                    rtp_ts.fractions = 0;
+                }
+                
+                gst_rtp_buffer_unmap(&rtp);
+                
+                // Store the RTP timestamp
+                std::lock_guard<std::mutex> lock(impl->rtp_mutex_);
+                impl->last_rtp_timestamp_ = rtp_ts;
+            }
+        }
+        
+        return GST_PAD_PROBE_OK;
+    }
+    
+    ImageProcessor::RTPTimestamp extractRTPTimestamp(GstBuffer* buffer) {
+        ImageProcessor::RTPTimestamp rtp_ts;
+        
+        // Get the RTP timestamp calculated from RTP headers
+        {
+            std::lock_guard<std::mutex> lock(rtp_mutex_);
+            rtp_ts = last_rtp_timestamp_;
+        }
+        
+        // Update PTS from current buffer
+        GstClockTime timestamp = GST_BUFFER_PTS(buffer);
+        rtp_ts.pts_ms = timestamp != GST_CLOCK_TIME_NONE ? 
+                        timestamp / 1000000 : 0; // nanoseconds to milliseconds
+        
+        // If no RTP custom timestamp available (no CSRC), use system time as fallback
+        if (rtp_ts.seconds == 0 && rtp_ts.nanoseconds == 0) {
+            auto now = std::chrono::system_clock::now();
+            auto duration = now.time_since_epoch();
+            auto total_nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+            
+            rtp_ts.seconds = total_nanos / 1000000000;
+            rtp_ts.nanoseconds = total_nanos % 1000000000;
+        }
+        
+        return rtp_ts;
+    }
+    
+    void extractRTPHeaderInfo(GstBuffer* rtp_buffer, ImageProcessor::RTPTimestamp& rtp_ts) {
+        GstRTPBuffer rtp = GST_RTP_BUFFER_INIT;
+        
+        if (gst_rtp_buffer_map(rtp_buffer, GST_MAP_READ, &rtp)) {
+            // Extract RTP header fields
+            rtp_ts.rtp_timestamp = gst_rtp_buffer_get_timestamp(&rtp);
+            rtp_ts.ssrc = gst_rtp_buffer_get_ssrc(&rtp);
+            
+            // Get CSRC if available (contains nanoseconds)
+            guint8 csrc_count = gst_rtp_buffer_get_csrc_count(&rtp);
+            if (csrc_count > 0) {
+                rtp_ts.csrc = gst_rtp_buffer_get_csrc(&rtp, 0);
+                
+                // Reconstruct full timestamp from RTP custom timestamp format
+                // According to the documentation:
+                // - RTP timestamp: 32 bits from seconds
+                // - SSRC: additional time information  
+                // - CSRC: nanoseconds and fractions
+                
+                // Extract seconds from RTP timestamp (32 bits of 48-bit seconds)
+                rtp_ts.seconds = static_cast<uint64_t>(rtp_ts.rtp_timestamp);
+                
+                // Extract nanoseconds from CSRC (high 32 bits)
+                rtp_ts.nanoseconds = rtp_ts.csrc & 0xFFFFFFFF;
+                
+                // Fractions would be in additional CSRC or extension headers
+                rtp_ts.fractions = 0; // Default to 0 if not available
+            }
+            
+            gst_rtp_buffer_unmap(&rtp);
+        }
     }
 };

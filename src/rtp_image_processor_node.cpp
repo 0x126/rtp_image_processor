@@ -73,13 +73,20 @@ public:
     }
     
 private:
-    void frameCallback(const uint8_t* data, size_t size, int64_t timestamp) {
+    void frameCallback(const uint8_t* data, size_t size, const ImageProcessor::RTPTimestamp& timestamp) {
         auto now = this->now();
         
         if (publish_compressed_ && compressed_pub_->get_subscription_count() > 0) {
             auto compressed_msg = std::make_unique<sensor_msgs::msg::CompressedImage>();
             compressed_msg->header.stamp = now;
             compressed_msg->header.frame_id = frame_id_;
+            
+            // Add RTP timestamp info to header
+            // Use the extracted timestamp if available
+            if (timestamp.seconds > 0) {
+                compressed_msg->header.stamp.sec = timestamp.seconds;
+                compressed_msg->header.stamp.nanosec = timestamp.nanoseconds;
+            }
             compressed_msg->format = "jpeg";
             compressed_msg->data.assign(data, data + size);
             
@@ -96,6 +103,12 @@ private:
                     cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", image).toImageMsg();
                 image_msg->header.stamp = now;
                 image_msg->header.frame_id = frame_id_;
+                
+                // Add RTP timestamp info to header
+                if (timestamp.seconds > 0) {
+                    image_msg->header.stamp.sec = timestamp.seconds;
+                    image_msg->header.stamp.nanosec = timestamp.nanoseconds;
+                }
                 raw_pub_.publish(image_msg);
             }
         }

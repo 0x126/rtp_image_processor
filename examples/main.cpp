@@ -30,14 +30,16 @@ int main(int argc, char* argv[]) {
     // Set callback
     processor.setFrameCallback([&frame_count](const uint8_t* data, 
                                               size_t size, 
-                                              int64_t timestamp) {
+                                              const ImageProcessor::RTPTimestamp& timestamp) {
         uint64_t count = ++frame_count;
         
         // Display progress and save frame every 100 frames
         if (count % 100 == 0) {
             std::cout << "Processed " << count << " frames, "
                      << "JPEG size: " << size << " bytes, "
-                     << "timestamp: " << timestamp << " ms" << std::endl;
+                     << "PTS: " << timestamp.pts_ms << " ms, "
+                     << "RTP TS: " << timestamp.rtp_timestamp << ", "
+                     << "SSRC: 0x" << std::hex << timestamp.ssrc << std::dec << std::endl;
             
             // Save sample frame
             std::string filename = "frame_" + std::to_string(count) + ".jpg";
