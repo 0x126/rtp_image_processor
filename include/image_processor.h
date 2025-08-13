@@ -1,0 +1,56 @@
+#ifndef IMAGE_PROCESSOR_H
+#define IMAGE_PROCESSOR_H
+
+#include <memory>
+#include <functional>
+#include <cstdint>
+#include <cstddef>
+
+enum class HardwareType {
+    VAAPI_INTEL,
+    VAAPI_AMD,
+    NVIDIA_DESKTOP,
+    NVIDIA_JETSON,
+    SOFTWARE_FALLBACK
+};
+
+struct ProcessorConfig {
+    int udp_port = 5008;
+    int jpeg_quality = 90;
+    int buffer_size = 8388608;  // 8MB
+    int max_buffers = 3;
+};
+
+class ImageProcessor {
+public:
+    using FrameCallback = std::function<void(const uint8_t* data, size_t size, int64_t timestamp)>;
+    
+    ImageProcessor(const ProcessorConfig& config);
+    ~ImageProcessor();
+    
+    // Disable copy
+    ImageProcessor(const ImageProcessor&) = delete;
+    ImageProcessor& operator=(const ImageProcessor&) = delete;
+    
+    // Start/stop processing
+    bool start();
+    void stop();
+    
+    // Set callback for processed frames
+    void setFrameCallback(FrameCallback callback);
+    
+    // Statistics
+    struct Statistics {
+        uint64_t frames_processed;
+        uint64_t frames_dropped;
+        double average_fps;
+        double average_latency_ms;
+    };
+    Statistics getStatistics() const;
+    
+private:
+    class Impl;
+    std::unique_ptr<Impl> pImpl;
+};
+
+#endif // IMAGE_PROCESSOR_H

@@ -1,0 +1,72 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+bin/
+lib/
+
+# CMake files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# Compiled objects
+*.o
+*.a
+*.so
+*.so.*
+*.dll
+*.dylib
+*.exe
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# GStreamer debug
+/tmp/gst_debug.log
+*.dot
+pipeline.png
+
+# Test outputs
+Testing/
+CTestTestfile.cmake
+test_results/
+
+# Documentation
+docs/html/
+docs/latex/
+Doxyfile.bak
+
+# Package files
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# Core dumps
+core
+core.*
+*.core
+
+# Valgrind
+*.valgrind
+vgcore.*
+
+# Temporary files
+*.tmp
+*.log
+*.pid
