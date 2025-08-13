@@ -348,23 +348,36 @@ private:
                 // - CSRC (32 bits): Low 16 bits of nanoseconds + 16 bits fractions
                 
                 if (csrc_count > 0) {
-                    // Full custom timestamp is available
+                    // Full custom timestamp is available (96-bit total)
+                    // According to Tier4 documentation:
+                    // - Bits [95:48] (48 bits): Seconds
+                    // - Bits [47:16] (32 bits): Nanoseconds  
+                    // - Bits [15:0] (16 bits): Fractions of nanoseconds
+                    //
+                    // RTP Header mapping:
+                    // - RTP timestamp (32 bits): Seconds bits [47:16]
+                    // - SSRC (32 bits): 
+                    //   - Upper 16 bits: Seconds bits [15:0]
+                    //   - Lower 16 bits: Nanoseconds bits [31:16]
+                    // - CSRC (32 bits):
+                    //   - Upper 16 bits: Nanoseconds bits [15:0]
+                    //   - Lower 16 bits: Fractions bits [15:0]
                     
                     // Seconds: 48 bits total
-                    // RTP timestamp provides high 32 bits
-                    // SSRC high 16 bits provides low 16 bits of seconds
-                    uint64_t high_seconds = static_cast<uint64_t>(rtp_ts.rtp_timestamp);
-                    uint64_t low_seconds = static_cast<uint64_t>((rtp_ts.ssrc >> 16) & 0xFFFF);
-                    rtp_ts.seconds = (high_seconds << 16) | low_seconds;
+                    // RTP timestamp contains seconds[47:16] (upper 32 bits of 48-bit seconds)
+                    // SSRC upper 16 bits contains seconds[15:0] (lower 16 bits of 48-bit seconds)
+                    uint64_t seconds_high_32 = static_cast<uint64_t>(rtp_ts.rtp_timestamp);
+                    uint64_t seconds_low_16 = static_cast<uint64_t>((rtp_ts.ssrc >> 16) & 0xFFFF);
+                    rtp_ts.seconds = (seconds_high_32 << 16) | seconds_low_16;
                     
                     // Nanoseconds: 32 bits total
-                    // SSRC low 16 bits provides high 16 bits of nanoseconds
-                    // CSRC high 16 bits provides low 16 bits of nanoseconds
-                    uint32_t high_nanos = (rtp_ts.ssrc & 0xFFFF);
-                    uint32_t low_nanos = ((rtp_ts.csrc >> 16) & 0xFFFF);
-                    rtp_ts.nanoseconds = (high_nanos << 16) | low_nanos;
+                    // SSRC lower 16 bits contains nanoseconds[31:16] (upper 16 bits)
+                    // CSRC upper 16 bits contains nanoseconds[15:0] (lower 16 bits)
+                    uint32_t nanos_high_16 = (rtp_ts.ssrc & 0xFFFF);
+                    uint32_t nanos_low_16 = ((rtp_ts.csrc >> 16) & 0xFFFF);
+                    rtp_ts.nanoseconds = (nanos_high_16 << 16) | nanos_low_16;
                     
-                    // Fractions: 16 bits from CSRC low 16 bits
+                    // Fractions: 16 bits from CSRC lower 16 bits
                     rtp_ts.fractions = (rtp_ts.csrc & 0xFFFF);
                 } else {
                     // Fallback to system time if custom timestamp not available
@@ -423,25 +436,31 @@ private:
             rtp_ts.rtp_timestamp = gst_rtp_buffer_get_timestamp(&rtp);
             rtp_ts.ssrc = gst_rtp_buffer_get_ssrc(&rtp);
             
-            // Get CSRC if available (contains nanoseconds)
+            // Get CSRC if available
             guint8 csrc_count = gst_rtp_buffer_get_csrc_count(&rtp);
             if (csrc_count > 0) {
                 rtp_ts.csrc = gst_rtp_buffer_get_csrc(&rtp, 0);
                 
-                // Reconstruct full timestamp from RTP custom timestamp format
-                // According to the documentation:
-                // - RTP timestamp: 32 bits from seconds
-                // - SSRC: additional time information  
-                // - CSRC: nanoseconds and fractions
+                // Reconstruct full 96-bit timestamp from RTP custom timestamp format
+                // According to Tier4 documentation:
+                // - RTP timestamp (32 bits): Seconds bits [47:16]
+                // - SSRC upper 16 bits: Seconds bits [15:0]
+                // - SSRC lower 16 bits: Nanoseconds bits [31:16]
+                // - CSRC upper 16 bits: Nanoseconds bits [15:0]
+                // - CSRC lower 16 bits: Fractions bits [15:0]
                 
-                // Extract seconds from RTP timestamp (32 bits of 48-bit seconds)
-                rtp_ts.seconds = static_cast<uint64_t>(rtp_ts.rtp_timestamp);
+                // Seconds: 48 bits total
+                uint64_t seconds_high_32 = static_cast<uint64_t>(rtp_ts.rtp_timestamp);
+                uint64_t seconds_low_16 = static_cast<uint64_t>((rtp_ts.ssrc >> 16) & 0xFFFF);
+                rtp_ts.seconds = (seconds_high_32 << 16) | seconds_low_16;
                 
-                // Extract nanoseconds from CSRC (high 32 bits)
-                rtp_ts.nanoseconds = rtp_ts.csrc & 0xFFFFFFFF;
+                // Nanoseconds: 32 bits total
+                uint32_t nanos_high_16 = (rtp_ts.ssrc & 0xFFFF);
+                uint32_t nanos_low_16 = ((rtp_ts.csrc >> 16) & 0xFFFF);
+                rtp_ts.nanoseconds = (nanos_high_16 << 16) | nanos_low_16;
                 
-                // Fractions would be in additional CSRC or extension headers
-                rtp_ts.fractions = 0; // Default to 0 if not available
+                // Fractions: 16 bits
+                rtp_ts.fractions = (rtp_ts.csrc & 0xFFFF);
             }
             
             gst_rtp_buffer_unmap(&rtp);
