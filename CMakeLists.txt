@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(RealtimeImageProcessor)
+project(rtp_image_processor)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -9,6 +9,15 @@ if(EXISTS "/etc/nv_tegra_release")
     set(JETSON_PLATFORM ON)
     add_definitions(-DJETSON_PLATFORM)
 endif()
+
+# Find ROS2 packages
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(image_transport REQUIRED)
+find_package(OpenCV REQUIRED)
 
 # Dependencies
 find_package(PkgConfig REQUIRED)
@@ -40,11 +49,39 @@ target_link_libraries(imageprocessor
 
 target_compile_options(imageprocessor PRIVATE ${GST_CFLAGS_OTHER})
 
-# Executable
+# ROS2 Node executable
+add_executable(rtp_image_processor_node 
+    src/rtp_image_processor_node.cpp
+)
+
+target_include_directories(rtp_image_processor_node
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+    PRIVATE
+        ${GST_INCLUDE_DIRS}
+        ${OpenCV_INCLUDE_DIRS}
+)
+
+ament_target_dependencies(rtp_image_processor_node
+    rclcpp
+    sensor_msgs
+    std_msgs
+    cv_bridge
+    image_transport
+)
+
+target_link_libraries(rtp_image_processor_node
+    imageprocessor
+    ${GST_LIBRARIES}
+    ${OpenCV_LIBS}
+)
+
+# Original demo executable
 add_executable(image_processor_demo examples/main.cpp)
 target_link_libraries(image_processor_demo imageprocessor)
 
-# Installation settings
+# Installation
 install(TARGETS imageprocessor
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
@@ -54,6 +91,21 @@ install(DIRECTORY include/
     DESTINATION include
 )
 
+install(TARGETS
+    rtp_image_processor_node
+    image_processor_demo
+    DESTINATION lib/${PROJECT_NAME}
+)
+
+# Install launch files
+install(DIRECTORY launch
+    DESTINATION share/${PROJECT_NAME}
+)
+
 # Tests
-enable_testing()
-# add_subdirectory(tests)  # Uncomment when tests directory has CMakeLists.txt
+if(BUILD_TESTING)
+    find_package(ament_lint_auto REQUIRED)
+    ament_lint_auto_find_test_dependencies()
+endif()
+
+ament_package()
