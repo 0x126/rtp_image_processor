@@ -19,6 +19,8 @@ struct ProcessorConfig {
     int jpeg_quality = 90;
     int buffer_size = 8388608;  // 8MB
     int max_buffers = 3;
+    int width = 1920;           // Video width
+    int height = 1280;          // Video height
 };
 
 class ImageProcessor {

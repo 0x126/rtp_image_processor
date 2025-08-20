@@ -134,8 +134,9 @@ private:
         std::string base = 
             "udpsrc port=" + std::to_string(config_.udp_port) + 
             " buffer-size=" + std::to_string(config_.buffer_size) + 
+            " address=10.42.0.1" + 
             " caps=\"application/x-rtp, sampling=(string)YCbCr-4:2:2, depth=(string)8, "
-            "width=(string)1920, height=(string)1280\" ! "
+            "width=(string)" + std::to_string(config_.width) + ", height=(string)" + std::to_string(config_.height) + "\" ! "
             "identity name=rtpidentity ! "
             "rtpvrawdepay ! ";
         
@@ -170,9 +171,9 @@ private:
     }
     // std::string buildVAAPIPipeline() {
     //     return
-    //         "video/x-raw,format=UYVY,width=1920,height=1280 !"
+    //         "video/x-raw,format=UYVY,width=" + std::to_string(config_.width) + ",height=" + std::to_string(config_.height) + " !"
     //         "vaapipostproc !"
-    //         "video/x-raw,format=NV12,width=1920,height=1280 !"
+    //         "video/x-raw,format=NV12,width=" + std::to_string(config_.width) + ",height=" + std::to_string(config_.height) + " !"
     //         "vaapijpegenc quality=" + std::to_string(config_.jpeg_quality) + " !";
     // }
 

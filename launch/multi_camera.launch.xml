@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Multi-camera launch file for 4 RTP image processors -->
+  
+  <!-- Camera 1 -->
+  <include file="$(find-pkg-share rtp_image_processor)/launch/rtp_image_processor.launch.xml">
+    <arg name="namespace" value="camera1"/>
+    <arg name="udp_port" value="5004"/>
+    <arg name="frame_id" value="camera1"/>
+    <arg name="width" value="1920"/>
+    <arg name="height" value="1280"/>
+    <arg name="jpeg_quality" value="90"/>
+    <arg name="publish_raw" value="false"/>
+    <arg name="publish_compressed" value="true"/>
+  </include>
+  
+  <include file="$(find-pkg-share rtp_image_processor)/launch/rtp_image_processor.launch.xml">
+    <arg name="namespace" value="camera2"/>
+    <arg name="udp_port" value="5005"/>
+    <arg name="frame_id" value="camera2"/>
+    <arg name="width" value="1920"/>
+    <arg name="height" value="1280"/>
+    <arg name="jpeg_quality" value="90"/>
+    <arg name="publish_raw" value="false"/>
+    <arg name="publish_compressed" value="true"/>
+  </include>
+  
+  <include file="$(find-pkg-share rtp_image_processor)/launch/rtp_image_processor.launch.xml">
+    <arg name="namespace" value="camera3"/>
+    <arg name="udp_port" value="5008"/>
+    <arg name="frame_id" value="camera3"/>
+    <arg name="width" value="1920"/>
+    <arg name="height" value="1280"/>
+    <arg name="jpeg_quality" value="90"/>
+    <arg name="publish_raw" value="false"/>
+    <arg name="publish_compressed" value="true"/>
+  </include>
+  
+  <include file="$(find-pkg-share rtp_image_processor)/launch/rtp_image_processor.launch.xml">
+    <arg name="namespace" value="camera4"/>
+    <arg name="udp_port" value="5009"/>
+    <arg name="frame_id" value="camera4"/>
+    <arg name="width" value="1920"/>
+    <arg name="height" value="1280"/>
+    <arg name="jpeg_quality" value="90"/>
+    <arg name="publish_raw" value="false"/>
+    <arg name="publish_compressed" value="true"/>
+  </include>
+</launch>

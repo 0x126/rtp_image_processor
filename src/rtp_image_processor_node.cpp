@@ -16,6 +16,8 @@ public:
         this->declare_parameter("jpeg_quality", 90);
         this->declare_parameter("buffer_size", 8388608);
         this->declare_parameter("max_buffers", 3);
+        this->declare_parameter("width", 1920);
+        this->declare_parameter("height", 1280);
         this->declare_parameter("publish_raw", false);
         this->declare_parameter("publish_compressed", true);
         this->declare_parameter("frame_id", "camera");
@@ -24,6 +26,8 @@ public:
         int jpeg_quality = this->get_parameter("jpeg_quality").as_int();
         int buffer_size = this->get_parameter("buffer_size").as_int();
         int max_buffers = this->get_parameter("max_buffers").as_int();
+        int width = this->get_parameter("width").as_int();
+        int height = this->get_parameter("height").as_int();
         publish_raw_ = this->get_parameter("publish_raw").as_bool();
         publish_compressed_ = this->get_parameter("publish_compressed").as_bool();
         frame_id_ = this->get_parameter("frame_id").as_string();
@@ -33,6 +37,8 @@ public:
         config.jpeg_quality = jpeg_quality;
         config.buffer_size = buffer_size;
         config.max_buffers = max_buffers;
+        config.width = width;
+        config.height = height;
         
         processor_ = std::make_unique<ImageProcessor>(config);
         
@@ -61,6 +67,7 @@ public:
         }
         
         RCLCPP_INFO(this->get_logger(), "RTP Image Processor Node started on UDP port %d", udp_port);
+        RCLCPP_INFO(this->get_logger(), "Resolution: %dx%d", width, height);
         RCLCPP_INFO(this->get_logger(), "Publishing: raw=%s, compressed=%s", 
                     publish_raw_ ? "true" : "false",
                     publish_compressed_ ? "true" : "false");
