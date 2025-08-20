@@ -13,6 +13,7 @@ endif()
 # Find ROS2 packages
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
@@ -50,12 +51,12 @@ target_link_libraries(imageprocessor
 
 target_compile_options(imageprocessor PRIVATE ${GST_CFLAGS_OTHER})
 
-# ROS2 Node executable
-add_executable(rtp_image_processor_node 
+# ROS2 Component library
+add_library(rtp_image_processor_component SHARED
     src/rtp_image_processor_node.cpp
 )
 
-target_include_directories(rtp_image_processor_node
+target_include_directories(rtp_image_processor_component
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
@@ -64,18 +65,25 @@ target_include_directories(rtp_image_processor_node
         ${OpenCV_INCLUDE_DIRS}
 )
 
-ament_target_dependencies(rtp_image_processor_node
+ament_target_dependencies(rtp_image_processor_component
     rclcpp
+    rclcpp_components
     sensor_msgs
     std_msgs
     cv_bridge
     image_transport
 )
 
-target_link_libraries(rtp_image_processor_node
+target_link_libraries(rtp_image_processor_component
     imageprocessor
     ${GST_LIBRARIES}
     ${OpenCV_LIBS}
+)
+
+rclcpp_components_register_node(
+    rtp_image_processor_component
+    PLUGIN "rtp_image_processor::RtpImageProcessorNode"
+    EXECUTABLE rtp_image_processor_node
 )
 
 # Original demo executable
@@ -90,6 +98,13 @@ install(TARGETS imageprocessor
 
 install(DIRECTORY include/
     DESTINATION include
+)
+
+install(TARGETS
+    rtp_image_processor_component
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
 )
 
 install(TARGETS

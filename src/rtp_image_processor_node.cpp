@@ -1,4 +1,5 @@
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp_components/register_node_macro.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <std_msgs/msg/header.hpp>
@@ -9,9 +10,12 @@
 #include <chrono>
 #include <thread>
 
+namespace rtp_image_processor {
+
 class RtpImageProcessorNode : public rclcpp::Node {
 public:
-    RtpImageProcessorNode() : Node("rtp_image_processor_node") {
+    explicit RtpImageProcessorNode(const rclcpp::NodeOptions& options) 
+        : Node("rtp_image_processor_node", options) {
         this->declare_parameter("udp_port", 5008);
         this->declare_parameter("jpeg_quality", 90);
         this->declare_parameter("buffer_size", 8388608);
@@ -142,16 +146,6 @@ private:
     uint64_t frame_count_ = 0;
 };
 
-int main(int argc, char** argv) {
-    rclcpp::init(argc, argv);
-    
-    try {
-        auto node = std::make_shared<RtpImageProcessorNode>();
-        rclcpp::spin(node);
-    } catch (const std::exception& e) {
-        RCLCPP_ERROR(rclcpp::get_logger("main"), "Exception: %s", e.what());
-    }
-    
-    rclcpp::shutdown();
-    return 0;
-}
+}  // namespace rtp_image_processor
+
+RCLCPP_COMPONENTS_REGISTER_NODE(rtp_image_processor::RtpImageProcessorNode)
