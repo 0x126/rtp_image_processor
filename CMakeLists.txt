@@ -18,6 +18,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
+find_package(camera_info_manager REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # Dependencies
@@ -72,6 +73,7 @@ ament_target_dependencies(rtp_image_processor_component
     std_msgs
     cv_bridge
     image_transport
+    camera_info_manager
 )
 
 target_link_libraries(rtp_image_processor_component
@@ -115,6 +117,11 @@ install(TARGETS
 
 # Install launch files
 install(DIRECTORY launch
+    DESTINATION share/${PROJECT_NAME}
+)
+
+# Install config files
+install(DIRECTORY config
     DESTINATION share/${PROJECT_NAME}
 )
 

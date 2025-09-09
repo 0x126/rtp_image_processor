@@ -2,8 +2,10 @@
 #include <rclcpp_components/register_node_macro.hpp>
 #include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
 #include <std_msgs/msg/header.hpp>
 #include <image_transport/image_transport.hpp>
+#include <camera_info_manager/camera_info_manager.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include "image_processor.h"
 #include <opencv2/opencv.hpp>
@@ -25,6 +27,7 @@ public:
         this->declare_parameter("publish_raw", false);
         this->declare_parameter("publish_compressed", true);
         this->declare_parameter("frame_id", "camera");
+        this->declare_parameter("camera_info_url", "");
         
         int udp_port = this->get_parameter("udp_port").as_int();
         int jpeg_quality = this->get_parameter("jpeg_quality").as_int();
@@ -35,6 +38,7 @@ public:
         publish_raw_ = this->get_parameter("publish_raw").as_bool();
         publish_compressed_ = this->get_parameter("publish_compressed").as_bool();
         frame_id_ = this->get_parameter("frame_id").as_string();
+        std::string camera_info_url = this->get_parameter("camera_info_url").as_string();
         
         ProcessorConfig config;
         config.udp_port = udp_port;
@@ -54,6 +58,18 @@ public:
         if (publish_raw_) {
             image_transport::ImageTransport it(shared_from_this());
             raw_pub_ = it.advertise("~/image_raw", 10);
+        }
+        
+        camera_info_pub_ = this->create_publisher<sensor_msgs::msg::CameraInfo>(
+            "~/camera_info", 10);
+        
+        // Initialize camera info manager
+        camera_info_manager_ = std::make_shared<camera_info_manager::CameraInfoManager>(this, frame_id_);
+        if (!camera_info_url.empty()) {
+            camera_info_manager_->loadCameraInfo(camera_info_url);
+            RCLCPP_INFO(this->get_logger(), "Loaded camera info from: %s", camera_info_url.c_str());
+        } else {
+            RCLCPP_WARN(this->get_logger(), "No camera_info_url provided, using default camera info");
         }
         
         stats_timer_ = this->create_wall_timer(
@@ -124,6 +140,20 @@ private:
             }
         }
         
+        if (camera_info_pub_->get_subscription_count() > 0) {
+            auto camera_info_msg = camera_info_manager_->getCameraInfo();
+            camera_info_msg.header.stamp = now;
+            camera_info_msg.header.frame_id = frame_id_;
+            
+            // Add RTP timestamp info to header if available
+            if (timestamp.seconds > 0) {
+                camera_info_msg.header.stamp.sec = timestamp.seconds;
+                camera_info_msg.header.stamp.nanosec = timestamp.nanoseconds;
+            }
+            
+            camera_info_pub_->publish(camera_info_msg);
+        }
+        
         frame_count_++;
     }
     
@@ -137,8 +167,10 @@ private:
     
     std::unique_ptr<ImageProcessor> processor_;
     rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr compressed_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_pub_;
     image_transport::Publisher raw_pub_;
     rclcpp::TimerBase::SharedPtr stats_timer_;
+    std::shared_ptr<camera_info_manager::CameraInfoManager> camera_info_manager_;
     
     bool publish_raw_;
     bool publish_compressed_;

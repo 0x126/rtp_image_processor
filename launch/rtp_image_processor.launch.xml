@@ -1,16 +1,17 @@
 <?xml version="1.0"?>
 <launch>
   <!-- Launch arguments -->
-  <arg name="udp_port" default="5005" description="UDP port for RTP stream"/>
+  <arg name="udp_port" default="5004" description="UDP port for RTP stream"/>
   <arg name="jpeg_quality" default="80" description="JPEG compression quality (0-100)"/>
   <arg name="buffer_size" default="8388608" description="Buffer size in bytes"/>
   <arg name="max_buffers" default="3" description="Maximum number of buffers"/>
-  <arg name="width" default="1920" description="Video width in pixels"/>
-  <arg name="height" default="1280" description="Video height in pixels"/>
+  <arg name="width" default="2880" description="Video width in pixels"/>
+  <arg name="height" default="1860" description="Video height in pixels"/>
   <arg name="publish_raw" default="false" description="Publish raw images"/>
   <arg name="publish_compressed" default="true" description="Publish compressed images"/>
   <arg name="frame_id" default="camera" description="Frame ID for published images"/>
   <arg name="namespace" default="rtp_processor" description="Namespace for the node"/>
+  <arg name="camera_info_url" default="package://rtp_image_processor/config/camera_info.yaml" description="URL for camera calibration file"/>
   
   <!-- RTP Image Processor Node -->
   <node pkg="rtp_image_processor" exec="rtp_image_processor_node" 
@@ -24,5 +25,6 @@
     <param name="publish_raw" value="$(var publish_raw)"/>
     <param name="publish_compressed" value="$(var publish_compressed)"/>
     <param name="frame_id" value="$(var frame_id)"/>
+    <param name="camera_info_url" value="$(var camera_info_url)"/>
   </node>
 </launch>

@@ -1,7 +1,8 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     return LaunchDescription([
@@ -45,6 +46,21 @@ def generate_launch_description():
             default_value='rtp_processor',
             description='Namespace for the node'
         ),
+        DeclareLaunchArgument(
+            'width',
+            default_value='1920',
+            description='Image width'
+        ),
+        DeclareLaunchArgument(
+            'height',
+            default_value='1280',
+            description='Image height'
+        ),
+        DeclareLaunchArgument(
+            'camera_info_url',
+            default_value=['package://rtp_image_processor/config/camera_info.yaml'],
+            description='URL for camera calibration file (file:// or package://)'
+        ),
         
         Node(
             package='rtp_image_processor',
@@ -59,6 +75,9 @@ def generate_launch_description():
                 'publish_raw': LaunchConfiguration('publish_raw'),
                 'publish_compressed': LaunchConfiguration('publish_compressed'),
                 'frame_id': LaunchConfiguration('frame_id'),
+                'width': LaunchConfiguration('width'),
+                'height': LaunchConfiguration('height'),
+                'camera_info_url': LaunchConfiguration('camera_info_url'),
             }],
             output='screen',
             emulate_tty=True,
