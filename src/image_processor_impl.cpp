@@ -134,7 +134,7 @@ private:
         std::string base = 
             "udpsrc port=" + std::to_string(config_.udp_port) + 
             " buffer-size=" + std::to_string(config_.buffer_size) + 
-            " address=10.42.0.1" + 
+            // " address=10.42.0.1" + 
             " caps=\"application/x-rtp, sampling=(string)YCbCr-4:2:2, depth=(string)8, "
             "width=(string)" + std::to_string(config_.width) + ", height=(string)" + std::to_string(config_.height) + "\" ! "
             "identity name=rtpidentity ! "
