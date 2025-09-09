@@ -180,7 +180,7 @@ private:
     std::string buildJetsonPipeline() {
         // Jetson pipeline - always use NVMM memory for best performance
         return "nvvidconv ! "
-               "video/x-raw(memory:NVMM),format=RGBA ! "
+               "video/x-raw(memory:NVMM),format=I420 ! "
                "nvjpegenc quality=" + std::to_string(config_.jpeg_quality) + 
                " idct-method=ifast !";
     }
