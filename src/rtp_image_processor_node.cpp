@@ -10,7 +10,6 @@
 #include "image_processor.h"
 #include <opencv2/opencv.hpp>
 #include <chrono>
-#include <thread>
 
 namespace rtp_image_processor {
 
@@ -160,9 +159,9 @@ private:
     void publishStatistics() {
         auto stats = processor_->getStatistics();
         RCLCPP_INFO(this->get_logger(), 
-                   "Stats: Frames=%lu, Dropped=%lu, FPS=%.2f, Latency=%.2fms",
+                   "Stats: Frames=%lu, Dropped=%lu, FPS=%.2f",
                    stats.frames_processed, stats.frames_dropped,
-                   stats.average_fps, stats.average_latency_ms);
+                   stats.average_fps);
     }
     
     std::unique_ptr<ImageProcessor> processor_;

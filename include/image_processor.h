@@ -56,7 +56,6 @@ public:
         uint64_t frames_processed;
         uint64_t frames_dropped;
         double average_fps;
-        double average_latency_ms;
     };
     Statistics getStatistics() const;
     

@@ -2,14 +2,12 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsink.h>
 #include <gst/rtp/gstrtpbuffer.h>
-#include <thread>
 #include <mutex>
 #include <chrono>
 #include <cstring>
 #include <atomic>
 #include <iostream>
 #include <fstream>
-#include <sstream>
 #include <vector>
 #include <cstdio>
 
@@ -100,7 +98,6 @@ public:
         stats.frames_processed = frames_processed_;
         stats.frames_dropped = frames_dropped_;
         stats.average_fps = duration > 0 ? static_cast<double>(frames_processed_) / duration : 0;
-        stats.average_latency_ms = 0; // TODO: Implement latency measurement
         
         return stats;
     }
